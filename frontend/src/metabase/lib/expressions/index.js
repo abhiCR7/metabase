@@ -48,7 +48,7 @@ export function isExpression(expr) {
 }
 
 export function isField(expr) {
-    return Array.isArray(expr) && expr.length === 2 && mbqlEq(expr[0], 'field-id') && typeof expr[1] === 'number';
+    return (Array.isArray(expr) && expr.length === 2 && mbqlEq(expr[0], 'field-id') && typeof expr[1] === 'number')||(expr.length === 3 && expr[0]=='fk->');
 }
 
 export function isMetric(expr) {

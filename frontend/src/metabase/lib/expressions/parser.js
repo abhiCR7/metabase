@@ -110,10 +110,16 @@ class ExpressionsParser extends Parser {
                 {ALT: () => $.SUBRULE($.stringLiteral) },
                 {ALT: () => $.SUBRULE($.identifier) }
             ]);
-
+            console.log("fieldName obtained "+fieldName);
             const field = this.getFieldForName(this._toString(fieldName));
             if (field != null) {
                 return this._fieldReference(fieldName, field.id);
+            } else if(this._toString(fieldName).indexOf("->")!=-1){
+                var split = this._toString(fieldName).split("->");
+                var tableName = split[0];
+                var name = split[1];
+                var foreignTableField = this.getForeignFieldForName(tableName,name);
+                return this._fkReference(foreignTableField[0],foreignTableField[1]);
             }
             const expression = this.getExpressionForName(this._toString(fieldName));
             if (expression != null) {
@@ -169,6 +175,17 @@ class ExpressionsParser extends Parser {
         return _.findWhere(fields, { display_name: fieldName });
     }
 
+    getForeignFieldForName(tableName,fieldName) {
+       console.log("tableId "+tableName+" fieldName "+fieldName);
+       const tables = this._options.tableMetadata && this._options.tableMetadata.db && this._options.tableMetadata.db.tables;
+       const table =  _.findWhere(tables, { display_name: tableName });
+       console.log("table with dispay name found "+table.display_name);
+       const fields = table && table.fields;
+       var field = _.findWhere(fields, { display_name: fieldName });
+       console.log("table with field name found "+field.display_name+" field id "+field.id);
+       return [table,field];
+    }
+
     getExpressionForName(expressionName) {
         const customFields = this._options && this._options.customFields;
         return customFields[expressionName];
@@ -202,6 +219,14 @@ class ExpressionsParserMBQL extends ExpressionsParser {
     _fieldReference(fieldName, fieldId) {
         return ["field-id", fieldId];
     }
+    _fkReference(table,field) {
+            const fields = this._options.tableMetadata && this._options.tableMetadata.fields;
+            const forignTableFields = table && table.fields ;
+            var foreignTablePK = _.findWhere(forignTableFields, { special_type: "type/PK"});
+            var fieldFromCurrentTable = _.findWhere(fields, { fk_target_field_id: foreignTablePK.id });
+            console.log("_fkReference "+["fk->",fieldFromCurrentTable.id,field.id]);
+            return ["fk->",fieldFromCurrentTable.id,field.id];
+        }
     _expressionReference(fieldName) {
         return ["expression", fieldName];
     }
@@ -253,6 +278,10 @@ class ExpressionsParserSyntax extends ExpressionsParser {
     _fieldReference(fieldName, fieldId) {
         return syntax("field", fieldName);
     }
+    _fkReference(field) {
+    console.log("_fkReference "+field);
+                return ["fk->",field.table_id,field.id];
+            }
     _expressionReference(fieldName) {
         return syntax("expression-reference", token(fieldName));
     }
@@ -314,6 +343,98 @@ function run(Parser, source, options) {
         throw parser.errors;
     }
     return expression;
+}
+
+function getPath(obj,arr,index){
+    if(!index){
+        index = 0;
+    }
+    if(!Array.isArray(arr)||Array.isArray(obj)||!obj){
+        return null;
+    }
+    if(arr.length>=index){
+        return obj;
+    }
+    return getPath(obj[arr[index]],arr,index+1);
+
+}
+
+//TODO optimize this futher
+function getFieldsFromForiegnTables(tableMetadata,aggregationShort) {
+    let FK_ID = "fk_target_field_id";
+    let DB_KEY = "db";
+    let TABLES_KEY = "tables";
+    let FIELDS_LOOKUP_KEY = "fields_lookup";
+    let foriegnFieldIds = [];
+    if(!tableMetadata.fields){
+        return null;
+    }
+//    foriegnFieldIds = _.filter(tableMetadata.fields,function(field){
+//        return field[FK_ID];
+//    });
+//    foriegnFieldIds = tableMetadata.fields.map(function(table){
+//        return table[FK_ID];
+//    });
+    if(!foriegnFieldIds){
+        return null;
+    }
+    if(tableMetadata.fields){
+        var u = 0;
+        var tableFields = tableMetadata.fields;
+        for(;u<tableMetadata.fields.length;u++){
+                var currentField = tableFields[u];
+                var fkId  =  currentField[FK_ID];
+                console.log(currentField);
+                console.log(fkId);
+                if(fkId){
+                   foriegnFieldIds.push(fkId);
+                }
+            }
+    } else {
+        return null;
+    }
+    console.log();
+    let foreignFields = [];
+    var fieldsIndex = 0;
+    var db = tableMetadata.db;
+    console.log("get db "+tableMetadata.db);
+    console.log("get db "+tableMetadata["db"]);
+    console.log("foriegnFieldIds "+foriegnFieldIds);
+    var dbTables = db.tables;
+    for(;fieldsIndex<foriegnFieldIds.length;fieldsIndex++){
+        var foriegnFieldId = foriegnFieldIds[fieldsIndex];
+        var dbTableIndex = 0;
+        for(;dbTableIndex<dbTables.length;dbTableIndex++){
+            var dbTable = dbTables[dbTableIndex];
+            var fieldsLookup = dbTable.fields_lookup;
+            var foreignFieldFromTable = fieldsLookup[foriegnFieldId];
+            if(foreignFieldFromTable){
+              var aggregateFields = _.findWhere(dbTable.aggregation_options, { short: aggregationShort });
+              console.log("aggregateFields "+aggregateFields);
+              if(aggregateFields && aggregateFields["fields"] && aggregateFields["fields"][0]) {
+                console.log("fields before concat "+aggregateFields["fields"][0].map(function(fld){ return fld.display_name}));
+                foreignFields = foreignFields.concat(aggregateFields["fields"][0]);
+              }
+
+            }
+        }
+    }
+//    _.each(foriegnFieldIds,function(foriegnFieldId){
+//
+//        _.each(dbTables,function(dbTable){
+//            var foreignFieldFromTable = dbTable[FIELDS_LOOKUP_KEY][foriegnFieldId];
+//            console.log(foreignFieldFromTable);
+//             if(foreignFieldFromTable){
+//                var aggregateFields = _.findWhere(dbTable.aggregation_options, { short: aggregationShort });
+//                console.log("aggregateFields "+aggregateFields);
+//                foreignFields = foreignFields.concat(aggregateFields["fields"]);
+//                return;
+//             }
+//           });
+//
+//        });
+
+    return foreignFields;
 }
 
 export function compile(source, options = {}) {
@@ -392,10 +513,13 @@ export function suggest(source, {
         } else if (nextTokenType === Identifier || nextTokenType === StringLiteral) {
             if (!outsideAggregation) {
                 let fields = [];
+                let foreignFields = [];
                 if (startRule === "aggregation" && currentAggregationToken) {
                     let aggregationShort = getAggregationFromName(getImage(currentAggregationToken));
                     let aggregationOption = _.findWhere(tableMetadata.aggregation_options, { short: aggregationShort });
+
                     fields = aggregationOption && aggregationOption.fields && aggregationOption.fields[0] || []
+                    foreignFields = getFieldsFromForiegnTables(tableMetadata,aggregationShort)
                 } else if (startRule === "expression") {
                     fields = tableMetadata.fields.filter(isNumeric);
                 }
@@ -406,6 +530,19 @@ export function suggest(source, {
                     prefixTrim: /\w+$/,
                     postfixTrim: /^\w+\s*/
                 })));
+                console.log("before finalSuggestions "+JSON.stringify(finalSuggestions));
+                console.log("foreignFields "+foreignFields.map(function(field){return field.display_name}))
+                if(foreignFields){
+                    //TODO replace table id with table name
+                    finalSuggestions = finalSuggestions.concat(foreignFields.map(field => ({
+                                        type: "fields",
+                                        name: field.table.display_name+"->"+field.display_name,
+                                        text: formatExpressionName(field.table.display_name+"->"+field.display_name) + " ",
+                                        prefixTrim: /\w+$/,
+                                        postfixTrim: /^\w+\s*/
+                                    })));
+                }
+console.log("after finalSuggestions "+JSON.stringify(finalSuggestions));
                 finalSuggestions.push(...Object.keys(customFields || {}).map(expressionName => ({
                     type: "fields",
                     name: expressionName,

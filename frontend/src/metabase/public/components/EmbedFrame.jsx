@@ -102,7 +102,6 @@ export default class EmbedFrame extends Component {
                 </div>
                 { footer &&
                     <div className="EmbedFrame-footer p1 md-p2 lg-p3 border-top flex-no-shrink flex align-center">
-                        <LogoBadge dark={theme} />
                         {actionButtons &&
                             <div className="flex-align-right text-grey-3">{actionButtons}</div>
                         }
@@ -112,3 +111,4 @@ export default class EmbedFrame extends Component {
         )
     }
 }
+
