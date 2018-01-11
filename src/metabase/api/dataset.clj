@@ -30,7 +30,7 @@
 
 (def ^:private ^:const max-results
   "General maximum number of rows to return from an API query."
-  10000)
+  50000)
 
 (def ^:const default-query-constraints
   "Default map of constraints that we apply on dataset queries executed by the api."

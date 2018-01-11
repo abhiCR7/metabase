@@ -882,7 +882,6 @@
   (let [columns (map keyword columns)
         out {:columns columns :rows rows}
          ]
-    (log/warn (u/format-color 'red (str "final output returned by elastic   " out) ))
     out
     )
 
@@ -924,7 +923,6 @@
                      query)
         query-type (or query-type (keyword "metabase.driver.rest.query-processor" (name (:queryType query))))
         results    (->> (do-query details query)
-                        (loghelper )
                         (post-process-elastic query-type)
                         )
         ;results    {:columns [:dimensionId.activity], :rows [["branch_visit"] ["other"] ["lead_creation"] ["new_cif_recruitment"] ["promotional"] ["report_change"]]}
@@ -933,6 +931,3 @@
         ;getters    (columns->getter-fns columns)
         ]
     results))
-
-
-
