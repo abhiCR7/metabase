@@ -100,14 +100,13 @@ export default class EmbedFrame extends Component {
                 <div className={cx("flex flex-column flex-full relative", { "scroll-y": innerScroll })}>
                     { name || (parameters && parameters.length > 0) ?
                         <div className="EmbedFrame-header flex align-center p1 sm-p2 lg-p3">
-                            {/** TODO:: Fix css instead removing name */}
-                            {/** TEMP FIX:: Commenting out name as not required to render */}
-                            {   /**
+                            {/* TODO:: Fix css instead removing name */}
+                            {/* TEMP FIX:: Commenting out name as not required to render */}
+                            {/*
                                 name && (
                                     <div className="h4 text-bold sm-h3 md-h2">{name}</div>
                                 )
-                                */
-                            }
+                             */}
                             { parameters && parameters.length > 0 ?
                                 <div className="flex ml-auto">
                                     <Parameters
