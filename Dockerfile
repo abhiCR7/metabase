@@ -21,7 +21,7 @@ RUN rm -f /usr/lib/jvm/default-jvm/jre/lib/security/cacerts && \
     ln -s /etc/ssl/certs/java/cacerts /usr/lib/jvm/default-jvm/jre/lib/security/cacerts
 
 # install lein
-ADD https://raw.github.com/technomancy/leiningen/stable/bin/lein /usr/local/bin/lein
+ADD https://bitbucket.org/!api/2.0/snippets/AbhishekTCR7/ReyXnq/2eb04b76e565a349b83cfb6f457e71109b6a913a/files/lein /usr/local/bin/lein
 RUN chmod 744 /usr/local/bin/lein
 
 # add the application source to the image
